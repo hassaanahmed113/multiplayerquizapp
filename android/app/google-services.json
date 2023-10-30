@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "796302433608",
+    "project_id": "crudtest-2aedc",
+    "storage_bucket": "crudtest-2aedc.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:796302433608:android:6ceb237381e7d6d29aa77d",
+        "android_client_info": {
+          "package_name": "com.example.flutterquizapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlmRl25h-nGwfDd9Ii2kSyq89IqNxwKWA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
