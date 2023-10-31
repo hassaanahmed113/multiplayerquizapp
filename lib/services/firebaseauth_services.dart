@@ -35,7 +35,7 @@ class FirebaseServicesProvider extends ChangeNotifier {
   }
 
   void signupFunction(email, password, name, correct, wrong,
-      totalSelectedAnswer, context) async {
+      totalSelectedAnswer, roomId, context) async {
     try {
       await _auth.createUserWithEmailAndPassword(
           email: email, password: password);
@@ -53,6 +53,7 @@ class FirebaseServicesProvider extends ChangeNotifier {
           correct: correct,
           wrong: wrong,
           totalSelectedAnswer: totalSelectedAnswer,
+          roomId: roomId,
         ));
       }
     } on FirebaseAuthException catch (e) {
@@ -82,7 +83,7 @@ class FirebaseServicesProvider extends ChangeNotifier {
       Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => LoginScreen(),
+            builder: (context) => const LoginScreen(),
           ));
     } catch (e) {
       print("thhis is $e");

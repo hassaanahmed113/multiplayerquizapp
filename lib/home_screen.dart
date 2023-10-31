@@ -27,20 +27,53 @@ class _HomeScreenState extends State<HomeScreen> {
   DbuserServices dbopponent = DbuserServices();
   RoomdbServices roomDb = RoomdbServices();
   final user = FirebaseAuth.instance.currentUser;
+  String roomId = '';
+  late Future<void> roomInitialization;
+
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
+    roomInitialization = _initializeRoom();
+  }
 
-    final roomData = RoomModel(
+  Future<void> _initializeRoom() async {
+    RoomModel newRoom = RoomModel(
         currentUserid: user!.uid,
         opponentUserid: dbopponent.opponentId,
         currentuserCorrect: dbopponent.currentusercorrect,
         currentuserWrong: dbopponent.currentuserwrong,
         opponentuserCorrect: dbopponent.opponentcorrect,
         opponentuserWrong: dbopponent.opponentwrong);
+    DocumentReference? roomRef = await RoomdbServices().addRoom(newRoom);
 
-    roomDb.addRoom(roomData);
+    if (roomRef != null) {
+      setState(() {});
+      roomId = roomRef.id;
+      print('Room ID: $roomId');
+    } else {
+      print('Error adding the room.');
+    }
+  }
+
+  Future<void> updateOpponentRoomId(String roomId) async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    // Query for users who are not the current user
+    QuerySnapshot usersQuery = await FirebaseFirestore.instance
+        .collection('user')
+        .where('id', isNotEqualTo: user!.uid)
+        .get();
+
+    for (QueryDocumentSnapshot userDoc in usersQuery.docs) {
+      // Update each user's roomId
+      await FirebaseFirestore.instance
+          .collection('user')
+          .doc(userDoc.id)
+          .update({
+        'roomId': roomId,
+      });
+    }
   }
 
   @override
@@ -75,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   .doc(user!.uid)
                                   .update({'correct': 0, 'wrong': 0});
                             },
-                            icon: Icon(
+                            icon: const Icon(
                               Icons.logout,
                               color: Colors.white,
                             ));
@@ -87,159 +120,196 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             body: Center(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    height: 100,
-                    child: StreamBuilder<List<OpponentModel>>(
-                      stream: dbopponent.getOpponentUser(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return CircularProgressIndicator(
-                            color: Colors.transparent,
-                          );
-                        }
-                        if (snapshot.hasError) {
-                          return Text('Error: ${snapshot.error}');
-                        }
-                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return Text('No User Available');
-                        }
-                        return ListView.builder(
-                          itemCount: 1,
-                          shrinkWrap: true,
-                          physics: NeverScrollableScrollPhysics(),
-                          itemBuilder: (context, index) {
-                            final opponent = snapshot.data![index];
-                            return Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Wrap(
-                                  direction: Axis.horizontal,
-                                  children: [
-                                    cus.textCus(
-                                        "Opponent: ${opponent.name} ",
-                                        20,
-                                        FontWeight.bold,
-                                        AppColor().blackColor),
-                                    cus.textCus("Correct: ", 20,
-                                        FontWeight.bold, AppColor().blackColor),
-                                    cus.textCus(
-                                        "${opponent.correct}",
-                                        20,
-                                        FontWeight.bold,
-                                        AppColor().correctColor),
-                                    cus.textCus(" Wrong: ", 20, FontWeight.bold,
-                                        AppColor().blackColor),
-                                    cus.textCus("${opponent.wrong}", 20,
-                                        FontWeight.bold, AppColor().wrongColor)
-                                  ],
-                                ),
-                              ),
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      height: 100,
+                      child: FutureBuilder<void>(
+                        future: roomInitialization,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.done) {
+                            // Room has been initialized, you can join it now
+                            updateOpponentRoomId(roomId);
+                            return const CircularProgressIndicator(
+                              color: Colors.transparent,
                             );
-                          },
-                        );
-                      },
+                          } else if (snapshot.hasError) {
+                            // Handle initialization error
+                            return Text('Error: ${snapshot.error}');
+                          } else {
+                            // Waiting for initialization to complete
+                            return const CircularProgressIndicator(
+                              color: Colors.transparent,
+                            );
+                          }
+                        },
+                      ),
                     ),
-                  ),
-                  cus.sizeboxCus(30),
-                  StreamBuilder<List<QuestionModel>>(
-                      stream: db.getItems(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return CircularProgressIndicator();
-                        }
-                        if (snapshot.hasError) {
-                          return Text('Error: ${snapshot.error}');
-                        }
-                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return Text('No items found.');
-                        }
-                        return Expanded(
-                            flex: 1,
-                            child: Consumer<QuizProvider>(
-                                builder: (context, quizprovider, child) {
-                              return ListView.builder(
-                                shrinkWrap: true,
-                                physics: NeverScrollableScrollPhysics(),
-                                itemCount: 1,
-                                itemBuilder: (context, index) {
-                                  final item = snapshot.data![0 + value];
-                                  quizprovider.providedanswers.add(item.answer);
-
-                                  final item1 = item.option.length;
-                                  return Column(
+                    SizedBox(
+                      height: 100,
+                      child: StreamBuilder<List<OpponentModel>>(
+                        stream: dbopponent.getOpponentUser(roomId),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const CircularProgressIndicator(
+                              color: Colors.transparent,
+                            );
+                          }
+                          if (snapshot.hasError) {
+                            return Text('Error: ${snapshot.error}');
+                          }
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return const Text('No User Available');
+                          }
+                          return ListView.builder(
+                            itemCount: 1,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemBuilder: (context, index) {
+                              final opponent = snapshot.data![index];
+                              return Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Wrap(
+                                    direction: Axis.horizontal,
                                     children: [
-                                      Text(
-                                          "Question ${value + 1}: ${item.question}"),
-                                      ListView.builder(
-                                        shrinkWrap: true,
-                                        physics: NeverScrollableScrollPhysics(),
-                                        itemCount: item1,
-                                        itemBuilder: (context, index) {
-                                          final item2 = item.option[index];
-                                          return Column(
-                                            children: [
-                                              InkWell(
-                                                  onTap: () {
-                                                    quizprovider.valueChange();
-                                                    quizprovider.answers.add(
-                                                        item.option[index]);
-
-                                                    quizprovider
-                                                        .calculateResult(
-                                                            value + 0);
-                                                    value += 1;
-                                                    final user = FirebaseAuth
-                                                        .instance.currentUser;
-
-                                                    FirebaseFirestore.instance
-                                                        .collection("user")
-                                                        .doc(user!.uid)
-                                                        .update({
-                                                      'totalSelectedAnswer':
-                                                          value + 0,
-                                                    });
-                                                    print(
-                                                        "This is correct of curentuser${dbopponent.currentusercorrect}");
-                                                    roomDb.updateRoom(RoomModel(
-                                                        currentUserid: user.uid,
-                                                        opponentUserid:
-                                                            dbopponent
-                                                                .opponentId,
-                                                        currentuserCorrect:
-                                                            quizprovider
-                                                                .correct,
-                                                        currentuserWrong:
-                                                            quizprovider.wrong,
-                                                        opponentuserCorrect:
-                                                            dbopponent
-                                                                .opponentcorrect,
-                                                        opponentuserWrong:
-                                                            dbopponent
-                                                                .opponentwrong));
-
-                                                    setState(() {});
-                                                  },
-                                                  child: Text(
-                                                      "${index + 1}: ${item2}")),
-                                            ],
-                                          );
-                                        },
-                                      ),
+                                      cus.textCus(
+                                          "Opponent: ${opponent.name} ",
+                                          20,
+                                          FontWeight.bold,
+                                          AppColor().blackColor),
+                                      cus.textCus(
+                                          "Correct: ",
+                                          20,
+                                          FontWeight.bold,
+                                          AppColor().blackColor),
+                                      cus.textCus(
+                                          "${opponent.correct}",
+                                          20,
+                                          FontWeight.bold,
+                                          AppColor().correctColor),
+                                      cus.textCus(
+                                          " Wrong: ",
+                                          20,
+                                          FontWeight.bold,
+                                          AppColor().blackColor),
+                                      cus.textCus(
+                                          "${opponent.wrong}",
+                                          20,
+                                          FontWeight.bold,
+                                          AppColor().wrongColor)
                                     ],
-                                  );
-                                },
+                                  ),
+                                ),
                               );
-                            }));
-                      }),
-                ],
-              ),
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    cus.sizeboxCus(30),
+                    StreamBuilder<List<QuestionModel>>(
+                        stream: db.getItems(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const CircularProgressIndicator();
+                          }
+                          if (snapshot.hasError) {
+                            return Text('Error: ${snapshot.error}');
+                          }
+                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            return const Text('No items found.');
+                          }
+                          return Expanded(
+                              flex: 1,
+                              child: Consumer<QuizProvider>(
+                                  builder: (context, quizprovider, child) {
+                                return ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: 1,
+                                  itemBuilder: (context, index) {
+                                    final item = snapshot.data![0 + value];
+                                    quizprovider.providedanswers
+                                        .add(item.answer);
+
+                                    final item1 = item.option.length;
+                                    return Column(
+                                      children: [
+                                        Text(
+                                            "Question ${value + 1}: ${item.question}"),
+                                        ListView.builder(
+                                          shrinkWrap: true,
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          itemCount: item1,
+                                          itemBuilder: (context, index) {
+                                            final item2 = item.option[index];
+                                            return Column(
+                                              children: [
+                                                InkWell(
+                                                    onTap: () {
+                                                      quizprovider
+                                                          .valueChange();
+                                                      quizprovider.answers.add(
+                                                          item.option[index]);
+
+                                                      quizprovider
+                                                          .calculateResult(
+                                                              value + 0);
+                                                      value += 1;
+                                                      final user = FirebaseAuth
+                                                          .instance.currentUser;
+
+                                                      FirebaseFirestore.instance
+                                                          .collection("user")
+                                                          .doc(user!.uid)
+                                                          .update({
+                                                        'totalSelectedAnswer':
+                                                            value + 0,
+                                                      });
+                                                      print(
+                                                          "This is correct of curentuser${dbopponent.currentusercorrect}");
+                                                      roomDb.updateRoom(RoomModel(
+                                                          currentUserid:
+                                                              user.uid,
+                                                          opponentUserid:
+                                                              dbopponent
+                                                                  .opponentId,
+                                                          currentuserCorrect:
+                                                              quizprovider
+                                                                  .correct,
+                                                          currentuserWrong:
+                                                              quizprovider
+                                                                  .wrong,
+                                                          opponentuserCorrect:
+                                                              dbopponent
+                                                                  .opponentcorrect,
+                                                          opponentuserWrong:
+                                                              dbopponent
+                                                                  .opponentwrong));
+
+                                                      setState(() {});
+                                                    },
+                                                    child: Text(
+                                                        "${index + 1}: $item2")),
+                                              ],
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                              }));
+                        }),
+                  ]),
             ),
           )
-        : ResultScreen();
+        : ResultScreen(roomId);
   }
 }

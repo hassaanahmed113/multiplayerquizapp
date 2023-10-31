@@ -11,7 +11,8 @@ import 'package:flutterquizapp/services/firebaseauth_services.dart';
 import 'package:provider/provider.dart';
 
 class ResultScreen extends StatefulWidget {
-  const ResultScreen({super.key});
+  String roomId;
+  ResultScreen(this.roomId, {super.key});
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -209,7 +210,8 @@ class _ResultScreenState extends State<ResultScreen> {
                                   child: Column(
                                     children: [
                                       StreamBuilder<List<OpponentModel>>(
-                                        stream: dbopponent.getOpponentUser(),
+                                        stream: dbopponent
+                                            .getOpponentUser(widget.roomId),
                                         builder: (context, snapshot) {
                                           if (snapshot.connectionState ==
                                               ConnectionState.waiting) {

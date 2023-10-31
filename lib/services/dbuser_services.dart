@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutterquizapp/Model/OpponentModel.dart';
+import 'package:flutterquizapp/Model/RoomModel.dart';
 import 'package:flutterquizapp/Model/user_model.dart';
 
 class DbuserServices extends ChangeNotifier {
@@ -18,11 +19,33 @@ class DbuserServices extends ChangeNotifier {
           correct: 0,
           wrong: 0,
           totalSelectedAnswer: 0,
+          roomId: '',
         );
         await quizdatauser.doc(user.uid).set(uuserr.toMap());
       }
     } catch (e) {
       print('Error adding item: $e');
+    }
+  }
+
+  Future<RoomModel?> getRoomModelByRoomId(String roomId) async {
+    final roomRef = FirebaseFirestore.instance.collection('rooms').doc(roomId);
+    final roomSnapshot = await roomRef.get();
+
+    if (roomSnapshot.exists) {
+      final data = roomSnapshot.data() as Map<String, dynamic>;
+      final roomModel = RoomModel(
+        currentUserid: data['currentUserid'],
+        opponentUserid: data['opponentUserid'],
+        currentuserCorrect: data['currentuserCorrect'],
+        currentuserWrong: data['currentuserWrong'],
+        opponentuserCorrect: data['opponentuserCorrect'],
+        opponentuserWrong: data['opponentuserWrong'],
+      );
+
+      return roomModel;
+    } else {
+      return null;
     }
   }
 
@@ -32,19 +55,21 @@ class DbuserServices extends ChangeNotifier {
     if (user != null) {
       CollectionReference items = FirebaseFirestore.instance.collection('user');
       return items.where('id', isEqualTo: user.uid).snapshots().map((snapshot) {
-        snapshot.docs.forEach((doc) {
+        for (var doc in snapshot.docs) {
           currentusercorrect = doc['correct'];
           currentuserwrong = doc['wrong'];
           notifyListeners();
-        });
+        }
         return snapshot.docs.map((doc) {
           return UserModel(
-              id: doc['id'],
-              email: doc['email'],
-              name: doc['name'],
-              correct: doc['correct'],
-              wrong: doc['wrong'],
-              totalSelectedAnswer: doc['totalSelectedAnswer']);
+            id: doc['id'],
+            email: doc['email'],
+            name: doc['name'],
+            correct: doc['correct'],
+            wrong: doc['wrong'],
+            totalSelectedAnswer: doc['totalSelectedAnswer'],
+            roomId: doc['roomId'],
+          );
         }).toList();
       });
     }
@@ -60,13 +85,13 @@ class DbuserServices extends ChangeNotifier {
   int opponentcorrect = 0;
   int opponentwrong = 0;
 
-  Stream<List<OpponentModel>> getOpponentUser() {
+  Stream<List<OpponentModel>> getOpponentUser(roomId) {
     FirebaseAuth auth = FirebaseAuth.instance;
     final user = auth.currentUser;
     if (user != null) {
       CollectionReference items = FirebaseFirestore.instance.collection('user');
       return items
-          .where('id', isNotEqualTo: user.uid)
+          .where('roomId', isEqualTo: roomId)
           .snapshots()
           .map((snapshot) {
         return snapshot.docs.map((doc) {

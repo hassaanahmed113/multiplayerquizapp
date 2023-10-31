@@ -5,14 +5,17 @@ class UserModel {
   int correct;
   int wrong;
   int totalSelectedAnswer;
+  String roomId;
 
-  UserModel(
-      {required this.id,
-      required this.email,
-      required this.name,
-      required this.correct,
-      required this.wrong,
-      required this.totalSelectedAnswer});
+  UserModel({
+    required this.id,
+    required this.email,
+    required this.name,
+    required this.correct,
+    required this.wrong,
+    required this.totalSelectedAnswer,
+    required this.roomId,
+  });
 
   Map<String, dynamic> toMap() {
     return {
@@ -21,7 +24,8 @@ class UserModel {
       'name': name,
       'correct': correct,
       'wrong': wrong,
-      'totalSelectedAnswer': totalSelectedAnswer
+      'totalSelectedAnswer': totalSelectedAnswer,
+      'roomId': roomId,
     };
   }
 }
